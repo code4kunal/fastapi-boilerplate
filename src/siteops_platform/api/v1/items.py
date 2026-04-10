@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Optional
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 
 from siteops_platform.api.deps import get_uow
@@ -33,11 +33,10 @@ class ItemOut(BaseModel):
 async def create_item(
     body: ItemCreateBody,
     uow: Annotated[UnitOfWork, Depends(get_uow)],
-    idempotency_key: Annotated[Optional[str], Header(alias="Idempotency-Key")] = None,
 ) -> dict:
-    _ = idempotency_key  # hook: dedupe by key in cache/store
-    uc = CreateItemUseCase(uow.items)
-    entity = await uc.execute(body.name)
+    item_repository = uow.items
+    create_item_use_case = CreateItemUseCase(item_repository)
+    entity = await create_item_use_case.execute(body.name)
     return ok(ItemOut(id=entity.id, name=entity.name).model_dump())
 
 
@@ -46,8 +45,11 @@ async def list_items(
     uow: Annotated[UnitOfWork, Depends(get_uow)],
     page: Annotated[PaginationParams, Depends()],
 ) -> dict:
-    uc = ListItemsUseCase(uow.items)
-    rows, total = await uc.execute(limit=page.limit, offset=page.offset)
+    item_repository = uow.items
+    list_items_use_case = ListItemsUseCase(item_repository)
+    rows, total = await list_items_use_case.execute(
+        limit=page.limit, offset=page.offset
+    )
     data = [ItemOut(id=r.id, name=r.name).model_dump() for r in rows]
     meta = PaginatedMeta(total=total, limit=page.limit, offset=page.offset).model_dump()
     return ok(data, meta=meta)
@@ -58,7 +60,8 @@ async def get_item(
     item_id: UUID,
     uow: Annotated[UnitOfWork, Depends(get_uow)],
 ) -> dict:
-    row = await uow.items.get(item_id)
+    item_repository = uow.items
+    row = await item_repository.get(item_id)
     if row is None:
         raise NotFoundError("item not found")
     return ok(ItemOut(id=row.id, name=row.name).model_dump())
