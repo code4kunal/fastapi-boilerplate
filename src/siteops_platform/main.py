@@ -24,7 +24,7 @@ from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter, SimpleSpanProcessor
 
 settings = get_settings()
 configure_logging(settings.log_level)
@@ -38,7 +38,11 @@ def _configure_otel() -> None:
             }
         )
     )
-    provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
+    if settings.app_env == "test":
+        # Avoid background exporter threads in tests; prevents teardown-time stream errors.
+        provider.add_span_processor(SimpleSpanProcessor(ConsoleSpanExporter()))
+    else:
+        provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
     trace.set_tracer_provider(provider)
 
 
@@ -51,6 +55,10 @@ async def lifespan(app: FastAPI):
 
     await init_redis(settings.redis_url)
     yield
+    tracer_provider = trace.get_tracer_provider()
+    shutdown = getattr(tracer_provider, "shutdown", None)
+    if callable(shutdown):
+        shutdown()
     await close_redis()
     await dispose_engine()
 

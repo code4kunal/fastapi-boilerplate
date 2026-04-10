@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Optional
 
 
-@dataclass(slots=True)
+@dataclass
 class Item:
     id: uuid.UUID
     name: str

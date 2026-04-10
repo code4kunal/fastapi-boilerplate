@@ -1,43 +1,50 @@
 .PHONY: install dev run lint format test test-cov migrate revision security docker-build docker-run ci clean
 
 UV ?= uv
+# Prefer `uv run` when uv is on PATH; otherwise `python3 -m` (venv or pip install -e ".[dev]").
+PYRUN := $(shell command -v $(UV) >/dev/null 2>&1 && echo "$(UV) run" || echo "python3 -m")
 
 install:
-	$(UV) sync --all-extras
+	@if command -v $(UV) >/dev/null 2>&1; then \
+		$(UV) sync --all-extras; \
+	else \
+		python3 -m pip install -U pip setuptools wheel && \
+		python3 -m pip install -e ".[dev]"; \
+	fi
 
 dev: install
-	$(UV) run uvicorn siteops_platform.main:app --reload --host 0.0.0.0 --port 8000
+	$(PYRUN) uvicorn siteops_platform.main:app --reload --host 0.0.0.0 --port 8000
 
 run:
-	$(UV) run uvicorn siteops_platform.main:app --host 0.0.0.0 --port 8000
+	$(PYRUN) uvicorn siteops_platform.main:app --host 0.0.0.0 --port 8000
 
 lint:
-	$(UV) run ruff check src tests
-	$(UV) run ruff format --check src tests
+	$(PYRUN) ruff check src tests
+	$(PYRUN) ruff format --check src tests
 
 format:
-	$(UV) run ruff format src tests
-	$(UV) run ruff check --fix src tests
+	$(PYRUN) ruff format src tests
+	$(PYRUN) ruff check --fix src tests
 
 test:
-	$(UV) run pytest tests/unit tests/api -m "not integration"
+	$(PYRUN) pytest tests/unit tests/api -m "not integration"
 
 test-cov:
-	$(UV) run pytest tests --cov=siteops_platform --cov-branch --cov-report=term-missing
+	$(PYRUN) pytest tests --cov=siteops_platform --cov-branch --cov-report=term-missing
 
 test-integration:
-	$(UV) run pytest tests/integration -m integration
+	$(PYRUN) pytest tests/integration -m integration
 
 migrate:
-	$(UV) run alembic upgrade head
+	$(PYRUN) alembic upgrade head
 
 revision:
-	$(UV) run alembic revision --autogenerate -m "$(m)"
+	$(PYRUN) alembic revision --autogenerate -m "$(m)"
 
 security:
-	$(UV) run bandit -r src
-	$(UV) run pip-audit
-	$(UV) run vulture src --min-confidence 80
+	$(PYRUN) bandit -r src
+	$(PYRUN) pip-audit
+	$(PYRUN) vulture src --min-confidence 80
 
 docker-build:
 	docker build -t siteops_platform:local .

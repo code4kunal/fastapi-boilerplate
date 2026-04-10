@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import secrets
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from jose import JWTError, jwt
 
@@ -16,7 +16,7 @@ _store = InMemoryRevocationStore()
 
 
 def _now() -> datetime:
-    return datetime.now(tz=UTC)
+    return datetime.now(tz=timezone.utc)
 
 
 def create_access_token(*, sub: str, roles: list[str]) -> str:
