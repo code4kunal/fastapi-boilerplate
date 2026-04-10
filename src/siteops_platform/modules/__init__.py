@@ -1,0 +1,1 @@
+"""Feature modules (add with `service_cli add-module`)."""

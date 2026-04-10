@@ -1,0 +1,1 @@
+"""JWT auth plugin (scaffolded with --auth)."""

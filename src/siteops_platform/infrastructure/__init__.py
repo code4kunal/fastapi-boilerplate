@@ -1,0 +1,1 @@
+"""Adapters: DB, cache, external APIs."""
